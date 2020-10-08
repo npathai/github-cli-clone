@@ -1,0 +1,33 @@
+package command
+
+import (
+  "fmt"
+  "github.com/spf13/cobra"
+)
+
+func init() {
+  RootCmd.AddCommand(prCmd)
+  prCmd.AddCommand(prListCmd)
+}
+
+var prCmd = &cobra.Command{
+  Use: "pr",
+  Short: "Work with pull requests",
+  Long: "This command allows you to work with pull requests",
+  Args: cobra.MinimumNArgs(1),
+  Execute: func(cmd *cobra.Command, args []string) {
+    fmt.Println("pr")
+  },
+}
+
+var prListCmd = &cobra.Command{
+  Use: "list",
+  Short: "List pull requests",
+  Execute: func(cmd *cobra.Command, args []string) {
+    ExecutePr()
+  },
+}
+
+func ExecutePr() {
+  fmt.Println("list")
+}
