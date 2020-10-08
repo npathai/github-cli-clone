@@ -15,7 +15,7 @@ var prCmd = &cobra.Command{
   Short: "Work with pull requests",
   Long: "This command allows you to work with pull requests",
   Args: cobra.MinimumNArgs(1),
-  Execute: func(cmd *cobra.Command, args []string) {
+  Run: func(cmd *cobra.Command, args []string) {
     fmt.Println("pr")
   },
 }
@@ -23,7 +23,7 @@ var prCmd = &cobra.Command{
 var prListCmd = &cobra.Command{
   Use: "list",
   Short: "List pull requests",
-  Execute: func(cmd *cobra.Command, args []string) {
+  Run: func(cmd *cobra.Command, args []string) {
     ExecutePr()
   },
 }
