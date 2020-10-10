@@ -1,11 +1,21 @@
 package git
 
-import "net/url"
+import (
+	"os/exec"
+	"strings"
+)
 
 func Remotes() ([]string, error) {
-	return []string{}, nil
+	remoteCmd := exec.Command("git", "remote", "-v")
+	remoteCmd.Stderr = nil
+	output, err := remoteCmd.Output()
+	return outputLines(output), err
 }
 
-func ParseUrl(rawUrl string) (u *url.URL, err error) {
-	return &url.URL{}, nil
+func outputLines(output []byte) []string {
+	lines := strings.TrimSuffix(string(output), "\n")
+	if lines == "" {
+		return []string{}
+	}
+	return strings.Split(lines, "\n")
 }
