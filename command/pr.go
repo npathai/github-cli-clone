@@ -2,6 +2,7 @@ package command
 
 import (
   "fmt"
+  "github.com/npathai/github-cli-clone/git"
   "github.com/npathai/github-cli-clone/github"
   "github.com/spf13/cobra"
 )
@@ -44,8 +45,20 @@ func ExecutePr() {
 
 func pullRequests(filter prFilter)[]github.PullRequest {
   project := project()
-  println(project)
-  return nil
+  client := github.NewClient(project.Host)
+  currentBranch, err := git.Head()
+  if err != nil {
+    panic(err)
+  }
+
+  headWithOwner := fmt.Sprintf("%s:%s", project.Owner, currentBranch)
+  filterParams := map[string]interface{}{"headWithOwner": headWithOwner}
+  prs, err := client.FetchPullRequests(&project, filterParams, 10, nil)
+  if err != nil {
+    panic(err)
+  }
+
+  return prs
 }
 
 func project() github.Project {

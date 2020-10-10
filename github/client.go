@@ -79,3 +79,16 @@ type Issue struct {
 }
 
 type PullRequest Issue
+
+func NewClient(host string) *Client {
+	return newClientWithHost(&Host{Host: host})
+}
+
+func newClientWithHost(host *Host) *Client {
+	return &Client{Host: host}
+}
+
+type Client struct {
+	Host *Host
+	cachedClient *simpleClient
+}
