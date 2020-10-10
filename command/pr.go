@@ -2,6 +2,7 @@ package command
 
 import (
   "fmt"
+  "github.com/npathai/github-cli-clone/github"
   "github.com/spf13/cobra"
 )
 
@@ -28,6 +29,36 @@ var prListCmd = &cobra.Command{
   },
 }
 
+type prFilter int
+
+const (
+createdByViewer prFilter = iota
+reviewRequested
+)
+
 func ExecutePr() {
-  fmt.Println("list")
+  prsCreatedByViewer := pullRequests(createdByViewer)
+
+  fmt.Printf("count! %d\n", len(prsCreatedByViewer))
+}
+
+func pullRequests(filter prFilter)[]github.PullRequest {
+  project := project()
+  println(project)
+  return nil
+}
+
+func project() github.Project {
+  remotes, error := github.Remotes()
+  if error != nil {
+    panic(error)
+  }
+
+  for _, remote := range remotes {
+    if project, error := remote.Project(); error == nil {
+      return *project
+    }
+  }
+
+  panic("Could not get the project. What is a project? I don't know, it's kind of like a git repository I think?")
 }
