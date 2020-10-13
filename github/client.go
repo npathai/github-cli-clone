@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+const (
+	GitHubHost string = "github.com"
+)
+
 type User struct {
 	Login string `json:"login"`
 }
@@ -124,6 +128,28 @@ func (client *Client) apiClient() (c *simpleClient, err error) {
 	return &simpleClient{
 		httpClient: httpClient,
 		rootUrl: apiRoot,
+	}
+}
+
+func (client *Client) absolute(host string) *url.URL {
+	u, err := url.Parse("https://" + host + "/")
+	if err != nil {
+		panic(err)
+	} else if client.Host != nil && client.Host.Protocol != "" {
+		u.Scheme = client.Host.Protocol
+	}
+	return u
+}
+
+func (client *Client) normalizeHost(host string) string {
+	if host == "" {
+		return GitHubHost
+	} else if strings.EqualFold(host, GitHubHost) {
+		return "api.github.com"
+	} else if strings.EqualFold(host, "github.localhost") {
+		return "api.github.localhost"
+	} else {
+		return strings.ToLower(host)
 	}
 }
 
