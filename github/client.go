@@ -117,7 +117,7 @@ func (client *Client) ensureAccessToken() error {
 	return nil
 }
 
-func (client *Client) apiClient() (c *simpleClient, err error) {
+func (client *Client) apiClient() *simpleClient {
 	unixSocket := os.ExpandEnv(client.Host.UnixSocket)
 	httpClient := newHttpClient(os.Getenv("HUB_TEST_HOST"), os.Getenv("HUB_VERBOSE") != "", unixSocket)
 	apiRoot := client.absolute(normalizeHost(client.Host.Host))
@@ -141,7 +141,7 @@ func (client *Client) absolute(host string) *url.URL {
 	return u
 }
 
-func (client *Client) normalizeHost(host string) string {
+func normalizeHost(host string) string {
 	if host == "" {
 		return GitHubHost
 	} else if strings.EqualFold(host, GitHubHost) {
@@ -218,4 +218,29 @@ filter func(pr *PullRequest) bool) (prs []PullRequest, err error) {
 		}
 	}
 	return
+}
+
+func addQuery(path string, params map[string]interface{}) string {
+	if len(params) == 0 {
+		return path
+	}
+
+	query := url.Values{}
+	for key, val := range params {
+		switch v := val.(type) {
+		case string:
+			query.Add(key, v)
+		case nil:
+			query.Add(key, "")
+		case int:
+			query.Add(key, fmt.Sprintf("%d", v))
+		case bool:
+			query.Add(key, fmt.Sprintf("%v", v))
+		}
+	}
+	sep := "?"
+	if strings.Contains(path, sep) {
+		sep = "&"
+	}
+	return path + sep + query.Encode()
 }
