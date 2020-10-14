@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"github.com/npathai/github-cli-clone/version"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +23,7 @@ import (
 )
 
 const apiPayloadVersion = "application/vnd.github.v3+json;charset=utf-8"
+const draftsType = "application/vnd.github.shadow-cat-preview+json;charset=utf-8"
 const cacheVersion = 2
 
 var UserAgent = "Hub " + version.Version
@@ -34,6 +37,28 @@ type simpleClient struct {
 
 type simpleResponse struct {
 	*http.Response
+}
+
+type errorInfo struct {
+	Message  string       `json:"message"`
+	Errors   []fieldError `json:"errors"`
+	Response *http.Response
+}
+
+func (e *errorInfo) Error() string {
+	return e.Message
+}
+
+type errorInfoSimple struct {
+	Message string   `json:"message"`
+	Errors  []string `json:"errors"`
+}
+
+type fieldError struct {
+	Resource string `json:"resource"`
+	Message  string `json:"message"`
+	Code     string `json:"code"`
+	Field    string `json:"field"`
 }
 
 type verboseTransport struct {
@@ -277,6 +302,35 @@ func (client *simpleClient) cacheWrite(key string, res *http.Response) {
 	}
 }
 
+func (res *simpleResponse) ErrorInfo() (msg *errorInfo, err error) {
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return
+	}
+
+	msg = &errorInfo{}
+	err = json.Unmarshal(body, msg)
+	if err != nil {
+		msgSimple := &errorInfoSimple{}
+		if err = json.Unmarshal(body, msgSimple); err == nil {
+			msg.Message = msgSimple.Message
+			for _, errMsg := range msgSimple.Errors {
+				msg.Errors = append(msg.Errors, fieldError{
+					Code:    "custom",
+					Message: errMsg,
+				})
+			}
+		}
+	}
+	if err == nil {
+		msg.Response = res.Response
+	}
+
+	return
+}
+
 func isGraphQL(req *http.Request) bool {
 	return req.URL.Path == "/graphql"
 }
@@ -287,4 +341,15 @@ func canCache(req *http.Request) bool {
 
 func cacheFile(key string) string {
 	return path.Join(os.TempDir(), "hub", "api", key)
+}
+
+func (res *simpleResponse) Link(name string) string {
+	linkVal := res.Header.Get("Link")
+	re := regexp.MustCompile(`<([^>]+)>; rel="([^"]+)"`)
+	for _, match := range re.FindAllStringSubmatch(linkVal, -1) {
+		if match[2] == name {
+			return match[1]
+		}
+	}
+	return ""
 }

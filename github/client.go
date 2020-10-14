@@ -254,3 +254,67 @@ func perPage(limit, max int) int {
 	}
 	return max
 }
+
+func checkStatus(expectedStatus int, action string, response *simpleResponse, err error) error {
+	if err != nil {
+		return fmt.Errorf("error %s: %s", action, err.Error())
+	} else if response.StatusCode != expectedStatus {
+		errInfo, err := response.ErrorInfo()
+		if err == nil {
+			return FormatError(action, errInfo)
+		} else {
+			return fmt.Errorf("error %s: %s (HTTP %d)", action, err.Error(), response.StatusCode)
+		}
+	} else {
+		return nil
+	}
+}
+
+func FormatError(action string, err error) (ee error) {
+	switch e := err.(type) {
+	default:
+		ee = err
+	case *errorInfo:
+		statusCode := e.Response.StatusCode
+		var reason string
+		if s := strings.SplitN(e.Response.Status, " ", 2); len(s) >= 2 {
+			reason = strings.TrimSpace(s[1])
+		}
+
+		errStr := fmt.Sprintf("Error %s: %s (HTTP %d)", action, reason, statusCode)
+
+		var errorSentences []string
+		for _, err := range e.Errors {
+			switch err.Code {
+			case "custom":
+				errorSentences = append(errorSentences, err.Message)
+			case "missing_field":
+				errorSentences = append(errorSentences, fmt.Sprintf("Missing field: \"%s\"", err.Field))
+			case "already_exists":
+				errorSentences = append(errorSentences, fmt.Sprintf("Duplicate value for \"%s\"", err.Field))
+			case "invalid":
+				errorSentences = append(errorSentences, fmt.Sprintf("Invalid value for \"%s\"", err.Field))
+			case "unauthorized":
+				errorSentences = append(errorSentences, fmt.Sprintf("Not allowed to change field \"%s\"", err.Field))
+			}
+		}
+
+		var errorMessage string
+		if len(errorSentences) > 0 {
+			errorMessage = strings.Join(errorSentences, "\n")
+		} else {
+			errorMessage = e.Message
+			if action == "getting current user" && e.Message == "Resource not accessible by integration" {
+				errorMessage = errorMessage + "\nYou must specify GITHUB_USER via environment variable."
+			}
+		}
+
+		if errorMessage != "" {
+			errStr = fmt.Sprintf("%s\n%s", errStr, errorMessage)
+		}
+
+		ee = fmt.Errorf(errStr)
+	}
+
+	return
+}
