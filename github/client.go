@@ -244,3 +244,13 @@ func addQuery(path string, params map[string]interface{}) string {
 	}
 	return path + sep + query.Encode()
 }
+
+func perPage(limit, max int) int {
+	if limit > 0 {
+		limit = limit + (limit / 2)
+		if limit < max {
+			return limit
+		}
+	}
+	return max
+}
