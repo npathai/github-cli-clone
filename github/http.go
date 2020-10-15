@@ -353,3 +353,13 @@ func (res *simpleResponse) Link(name string) string {
 	}
 	return ""
 }
+
+func (res *simpleResponse) Unmarshal(dest interface{}) (err error) {
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return
+	}
+	return json.Unmarshal(body, dest)
+}
