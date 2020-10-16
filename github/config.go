@@ -1,6 +1,7 @@
 package github
 
 import (
+	"github.com/mitchellh/go-homedir"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,7 @@ func CurrentConfig() *Config {
 	filename := configsFile()
 	if configLoadedFrom != filename {
 		currentConfig =	&Config{}
-		newConfigService().load(filename, currentConfig)
+		newConfigService().Load(filename, currentConfig)
 		configLoadedFrom = filename
 	}
 
