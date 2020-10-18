@@ -143,13 +143,13 @@ func (client *simpleClient) GetFile(path string, mimeType string) (*simpleRespon
 	})
 }
 
-func (client *simpleClient) PerformRequest(method string, path string, body io.Reader, configure func(r *http.Request)) (*simpleResponse, error) {
+func (c *simpleClient) PerformRequest(method string, path string, body io.Reader, configure func(r *http.Request)) (*simpleResponse, error) {
 	u, err := url.Parse(path)
 	if err != nil {
 		return nil, err
 	}
-	u = client.rootUrl.ResolveReference(u)
-	return client.performRequestUrl(method, u, body, configure)
+	u = c.rootUrl.ResolveReference(u)
+	return c.performRequestUrl(method, u, body, configure)
 }
 
 func (client *simpleClient) performRequestUrl(method string, url *url.URL, body io.Reader, configure func(r *http.Request)) (res *simpleResponse, err error) {
@@ -362,4 +362,12 @@ func (res *simpleResponse) Unmarshal(dest interface{}) (err error) {
 		return
 	}
 	return json.Unmarshal(body, dest)
+}
+
+func (client *simpleClient) PostJSON(path string, payload interface{}) (*simpleResponse, error) {
+	return client.jsonRequest("POST", path, payload, nil)
+}
+
+func (c *simpleClient) Get(path string) (*simpleResponse, error) {
+	return c.performRequest("GET", path, nil, nil)
 }

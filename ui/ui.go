@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"github.com/mattn/go-colorable"
+	"github.com/mattn/go-isatty"
 	"io"
 	"os"
 )
@@ -10,15 +11,43 @@ import (
 type UI interface {
 	Print(a ...interface{}) (n int, err error)
 	Printf(format string, a ...interface{}) (n int, err error)
+	Println(a ...interface{}) (n int, err error)
 	Errorf(format string, a ...interface{}) (n int, err error)
 	Errorln(a ...interface{}) (n int, err error)
 }
 
 var (
-	Stdout = colorable.NewColorableStdout()
-	Stderr = colorable.NewColorableStderr()
+	Stdout     = colorable.NewColorableStdout()
+	Stderr     = colorable.NewColorableStderr()
 	Default UI = Console{Stdout: Stdout, Stderr: Stderr}
 )
+
+func Print(a ...interface{}) (n int) {
+	n, err := Default.Print(a...)
+	if err != nil {
+		// If something as basic as printing to stdout fails, just panic and exit
+		os.Exit(1)
+	}
+	return
+}
+
+func Printf(format string, a ...interface{}) (n int) {
+	n, err := Default.Printf(format, a...)
+	if err != nil {
+		// If something as basic as printing to stdout fails, just panic and exit
+		os.Exit(1)
+	}
+	return
+}
+
+func Println(a ...interface{}) (n int) {
+	n, err := Default.Println(a...)
+	if err != nil {
+		// If something as basic as printing to stdout fails, just panic and exit
+		os.Exit(1)
+	}
+	return
+}
 
 func Errorf(format string, a ...interface{}) (n int) {
 	n, err := Default.Errorf(format, a...)
@@ -36,6 +65,10 @@ func Errorln(a ...interface{}) (n int) {
 		os.Exit(1)
 	}
 	return
+}
+
+func IsTerminal(f *os.File) bool {
+	return isatty.IsTerminal(f.Fd())
 }
 
 type Console struct {

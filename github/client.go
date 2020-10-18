@@ -1,18 +1,22 @@
 package github
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
 
 const (
 	GitHubHost string = "github.com"
+	OAuthAppURL string = "https://hub.github.com/"
 )
 
 type User struct {
@@ -108,7 +112,7 @@ type Client struct {
 
 func (client *Client) ensureAccessToken() error {
 	if client.Host.AccessToken == "" {
-		host, err := CurrentConfig().PromptHost(client.Host.Host)
+		host, err := CurrentConfig().PromptForHost(client.Host.Host)
 		if err != nil {
 			return err
 		}
@@ -316,5 +320,140 @@ func FormatError(action string, err error) (ee error) {
 		ee = fmt.Errorf(errStr)
 	}
 
+	return
+}
+
+func NewClientWithHost(host *Host) *Client {
+	return &Client{Host: host}
+}
+
+func (client *Client) FindOrCreateToken(user, password, twoFactorCode string) (token string, err error) {
+	api := client.apiClient()
+
+	if len(password) >= 40 && isToken(api, password) {
+		return password, nil
+	}
+
+	params := map[string]interface{}{
+		"scopes":   []string{"repo"},
+		"note_url": OAuthAppURL,
+	}
+
+	api.PrepareRequest = func(req *http.Request) {
+		req.SetBasicAuth(user, password)
+		if twoFactorCode != "" {
+			req.Header.Set("X-GitHub-OTP", twoFactorCode)
+		}
+	}
+
+	count := 1
+	maxTries := 9
+	for {
+		params["note"], err = authTokenNote(count)
+		if err != nil {
+			return
+		}
+
+		res, postErr := api.PostJSON("authorizations", params)
+		if postErr != nil {
+			err = postErr
+			break
+		}
+
+		if res.StatusCode == 201 {
+			auth := &AuthorizationEntry{}
+			if err = res.Unmarshal(auth); err != nil {
+				return
+			}
+			token = auth.Token
+			break
+		} else if res.StatusCode == 422 && count < maxTries {
+			count++
+		} else {
+			errInfo, e := res.ErrorInfo()
+			if e == nil {
+				err = errInfo
+			} else {
+				err = e
+			}
+			return
+		}
+	}
+
+	return
+}
+
+func isToken(api *simpleClient, password string) bool {
+	api.PrepareRequest = func(req *http.Request) {
+		req.Header.Set("Authorization", "token "+password)
+	}
+
+	res, _ := api.Get("user")
+	if res != nil && res.StatusCode == 200 {
+		return true
+	}
+	return false
+}
+
+func (client *simpleClient) jsonRequest(method, path string, body interface{}, configure func(*http.Request)) (*simpleResponse, error) {
+	json, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(json)
+
+	return client.performRequest(method, path, buf, func(req *http.Request) {
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		if configure != nil {
+			configure(req)
+		}
+	})
+}
+
+func authTokenNote(num int) (string, error) {
+	n := os.Getenv("USER")
+
+	if n == "" {
+		n = os.Getenv("USERNAME")
+	}
+
+	if n == "" {
+		whoami := exec.Command("whoami")
+		whoamiOut, err := whoami.Output()
+		if err != nil {
+			return "", err
+		}
+		n = strings.TrimSpace(string(whoamiOut))
+	}
+
+	h, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+
+	if num > 1 {
+		return fmt.Sprintf("hub for %s@%s %d", n, h, num), nil
+	}
+
+	return fmt.Sprintf("hub for %s@%s", n, h), nil
+}
+
+type AuthorizationEntry struct {
+	Token string `json:"token"`
+}
+
+func (client *Client) CurrentUser() (user *User, err error) {
+	api, err := client.simpleApi()
+	if err != nil {
+		return
+	}
+
+	res, err := api.Get("user")
+	if err = checkStatus(200, "getting current user", res, err); err != nil {
+		return
+	}
+
+	user = &User{}
+	err = res.Unmarshal(user)
 	return
 }
